@@ -1,249 +1,270 @@
 <script lang="ts">
     import {GLTFLoader, type GLTF} from 'three/addons/loaders/GLTFLoader.js';
-    import { FirstPersonControls } from 'three/addons/controls/FirstPersonControls.js';
+    //import {FirstPersonControls } from 'three/addons/controls/FirstPersonControls.js';
     import * as THREE from 'three';
     import { onMount } from 'svelte';
 
     onMount(() => {
-      const scene = new THREE.Scene();
-
-      const renderer = new THREE.WebGLRenderer();
-      renderer.setPixelRatio( window.devicePixelRatio );
-      renderer.setSize( window.innerWidth, window.innerHeight );
-      document.body.appendChild(  renderer.domElement );
-
-      const gltfLoader = new GLTFLoader();
-      const url = 'maroom.gltf';
-      gltfLoader.load(url, (gltf: GLTF) => { // test if it is a gltf or not later, I don't trust ai bro
-        const root = gltf.scene;
-
-        // to see the mesh while I have no textures...
-        root.traverse((object) => {
-          if (object instanceof THREE.Mesh) {
-              object.material = new THREE.MeshNormalMaterial();
-          }
-        });
-
-        // add 3d scene to scene
-        scene.add(root);
-      });
-
-      // lights
-      const color = 0xFFFFFF;
-      const intensity = 1;
-      const light = new THREE.AmbientLight(color, intensity);
-      scene.add(light);
-
-      // camera
-      var camera = new THREE.PerspectiveCamera( 75, window.innerWidth / window.innerHeight, 0.1, 1000 );
-
-      /// controls
-      THREE.FirstPersonControls = function ( camera, MouseMoveSensitivity = 0.002, speed = 800.0, jumpHeight = 350.0, height = 30.0) {
-        var scope = this;
-
-        scope.MouseMoveSensitivity = MouseMoveSensitivity;
-        scope.speed = speed;
-        scope.height = height;
-        scope.jumpHeight = scope.height + jumpHeight;
-        scope.click = false;
-
-        var moveForward = false;
-        var moveBackward = false;
-        var moveLeft = false;
-        var moveRight = false;
-        var canJump = false;
-        var run = false;
-
-        var velocity = new THREE.Vector3();
-        var direction = new THREE.Vector3();
-
-        var prevTime = performance.now();
-
-        camera.rotation.set( 0, 0, 0 );
-
-        var pitchObject = new THREE.Object3D();
-        pitchObject.add( camera );
-
-        var yawObject = new THREE.Object3D();
-        yawObject.position.y = 10;
-        yawObject.add( pitchObject );
-
-        var PI_2 = Math.PI / 2;
-
-        var onMouseMove = function ( event ) {
-
-          if ( scope.enabled === false ) return;
-
-          var movementX = event.movementX || event.mozMovementX || event.webkitMovementX || 0;
-          var movementY = event.movementY || event.mozMovementY || event.webkitMovementY || 0;
-
-          yawObject.rotation.y -= movementX * scope.MouseMoveSensitivity;
-          pitchObject.rotation.x -= movementY * scope.MouseMoveSensitivity;
-
-          pitchObject.rotation.x = Math.max( - PI_2, Math.min( PI_2, pitchObject.rotation.x ) );
-
-        };
-
-        var onKeyDown = (function ( event ) {
-
-          if ( scope.enabled === false ) return;
-
-          switch ( event.keyCode ) {
-            case 38: // up
-            case 87: // w
-              moveForward = true;
-              break;
-
-            case 37: // left
-            case 65: // a
-              moveLeft = true;
-              break;
-
-            case 40: // down
-            case 83: // s
-              moveBackward = true;
-              break;
-
-            case 39: // right
-            case 68: // d
-              moveRight = true;
-              break;
-
-            case 32: // space
-              if ( canJump === true ) velocity.y += run === false ? scope.jumpHeight : scope.jumpHeight + 50;
-              canJump = false;
-              break;
-
-            case 16: // shift
-              run = true;
-              break;
-
-          }
-
-        }).bind(this);
-
-        var onKeyUp = (function ( event ) {
-
-          if ( scope.enabled === false ) return;
-
-          switch ( event.keyCode ) {
-
-            case 38: // up
-            case 87: // w
-              moveForward = false;
-              break;
-
-            case 37: // left
-            case 65: // a
-              moveLeft = false;
-              break;
-
-            case 40: // down
-            case 83: // s
-              moveBackward = false;
-              break;
-
-            case 39: // right
-            case 68: // d
-              moveRight = false;
-              break;
-
-            case 16: // shift
-              run = false;
-              break;
-
-          }
-
-        }).bind(this);
-
-        var onMouseDownClick= (function ( event ) {
-          if ( scope.enabled === false ) return;
-          scope.click = true;
-        }).bind(this);
-
-        var onMouseUpClick= (function ( event ) {
-          if ( scope.enabled === false ) return;
-          scope.click = false;
-        }).bind(this);
-
-        scope.dispose = function() {
-          document.removeEventListener( 'mousemove', onMouseMove, false );
-          document.removeEventListener( 'keydown', onKeyDown, false );
-          document.removeEventListener( 'keyup', onKeyUp, false );
-          document.removeEventListener( 'mousedown', onMouseDownClick, false );
-          document.removeEventListener( 'mouseup', onMouseUpClick, false );
-        };
-
-        document.addEventListener( 'mousemove', onMouseMove, false );
-        document.addEventListener( 'keydown', onKeyDown, false );
-        document.addEventListener( 'keyup', onKeyUp, false );
-        document.addEventListener( 'mousedown', onMouseDownClick, false );
-        document.addEventListener( 'mouseup', onMouseUpClick, false );
-
-        scope.enabled = false;
-
-        scope.getObject = function () {
-
-          return yawObject;
-
-        };
-
-        scope.update = function () {
-
-          var time = performance.now();
-          var delta = ( time - prevTime ) / 1000;
-
-          velocity.y -= 9.8 * 100.0 * delta;
-          velocity.x -= velocity.x * 10.0 * delta;
-          velocity.z -= velocity.z * 10.0 * delta;
-
-          direction.z = Number( moveForward ) - Number( moveBackward );
-          direction.x = Number( moveRight ) - Number( moveLeft );
-          direction.normalize();
-
-          var currentSpeed = scope.speed;
-          if (run && (moveForward || moveBackward || moveLeft || moveRight)) currentSpeed = currentSpeed + (currentSpeed * 1.1);
-
-          if ( moveForward || moveBackward ) velocity.z -= direction.z * currentSpeed * delta;
-          if ( moveLeft || moveRight ) velocity.x -= direction.x * currentSpeed * delta;
-
-          scope.getObject().translateX( -velocity.x * delta );
-          scope.getObject().translateZ( velocity.z * delta );
-
-          scope.getObject().position.y += ( velocity.y * delta );
-
-          if ( scope.getObject().position.y < scope.height ) {
-
-            velocity.y = 0;
-            scope.getObject().position.y = scope.height;
-
-            canJump = true;
-          }
-          prevTime = time;
-        };
+      const KEYS = {
+        a: 'KeyA',
+        s: 'KeyS',
+        w: 'KeyW',
+        d: 'KeyD',
       };
-      controls = new THREE.FirstPersonControls( camera );
-      controls.update();
+
+      function clamp(x, a, b) {
+        return Math.min(Math.max(x, a), b);
+      }
+
+      class InputRouterAndActionTaker {
+        constructor() {
+          this.initialize_();
+        }
+
+        initialize_() {
+          this.current_ = {
+            leftButton: false,
+            rightButton: false,
+            mouseXDelta: 0,
+            mouseYDelta: 0,
+            mouseX: 0,
+            mouseY: 0
+          };
+          this.previousMousePosition_ = null;
+          this.keys_ = {}; //available keys property
+          this.previousKeys_ = {}; //history property?
+
+          document.addEventListener('mousedown', (event) => this.onMouseDown_(event), false);
+          document.addEventListener('mouseup', (event) => this.onMouseUp_(event), false);
+          document.addEventListener('mousemove', (event) => this.onMouseMove_(event), false);
+          document.addEventListener('keydown', (event) => this.onKeyDown_(event), false);
+          document.addEventListener('keyup', (event) => this.onKeyUp_(event), false);
+        };
+
+        onMouseDown_(event) {
+          switch(event.button) {
+            case 0: {
+              this.current_.leftButton = true;
+              break;
+            }
+            case 1: {
+              this.current_.rightButton = true;
+              break;
+            }
+          }
+        };
+        onMouseUp_(event) {
+          switch(event.button) {
+            case 0: {
+              this.current_.leftButton = false;
+              break;
+            }
+            case 1: {
+              this.current_.rightButton = false;
+              break;
+            }
+          }
+        };
+        onMouseMove_(event) {
+          this.current_.mouseX = event.clientX - window.innerWidth/2;
+          this.current_.mouseY = event.clientY - window.innerHeight/2;
+
+          if (this.previousMousePosition_ === null) {
+            this.previousMousePosition_ = {...this.current_}
+          }
+
+          this.current_.mouseXDelta = this.current_.mouseX - this.previousMousePosition_.mouseX;
+          this.current_.mouseYDelta = this.current_.mouseY - this.previousMousePosition_.mouseY;
+        };
+
+        onKeyDown_(event) {
+          this.keys_[event.code] = true;
+        };
+        onKeyUp_(event) {
+          this.keys_[event.code] = false;
+        };
+
+        key(keyCode) {
+          return !!this.keys_[keyCode];
+        }
+
+        update() {
+          if (this.previousMousePosition_ !== null) {
+            this.current_.mouseXDelta = this.current_.mouseX - this.previousMousePosition_.mouseX;
+            this.current_.mouseYDelta = this.current_.mouseY - this.previousMousePosition_.mouseY;
+
+            this.previousMousePosition_ = {...this.current_};
+          }
+        }
+      }
+
+      class FirstPersonCamera {
+        constructor(camera) {
+          this.camera_ = camera;
+          this.input_ = new InputRouterAndActionTaker();
+          this.rotation_ = new THREE.Quaternion();
+          this.translation_ = new THREE.Vector3(10, 5, 10);
+          this.phi_ = 0;
+          this.theta_ = 0;
+        }
+
+        update(timeElapsedS) {
+          this.updateRotation_(timeElapsedS);
+          this.updateCamera_(timeElapsedS);
+          this.updateTranslation(timeElapsedS);
+          this.input_.update(timeElapsedS) // what does this mean...
+        }
+
+        updateRotation_(timeElapsedS) { // mouse controls rotation, so we need a seperate function for it.
+          const x_axis_rotation = this.input_.current_.mouseXDelta / window.innerWidth;
+          const y_axis_rotation = this.input_.current_.mouseYDelta / window.innerHeight;
+
+          this.phi_ += -x_axis_rotation * 5;
+          this.theta_ = clamp(this.theta_ + -y_axis_rotation * 5, -Math.PI / 3, Math.PI / 3);
+
+          const quaternion_rotation_x_axis = new THREE.Quaternion();
+          quaternion_rotation_x_axis.setFromAxisAngle(new THREE.Vector3(0, 1, 0), this.phi_);
+          const quaternion_rotation_y_axis = new THREE.Quaternion();
+          quaternion_rotation_y_axis.setFromAxisAngle(new THREE.Vector3(1, 0, 0), this.theta_);
+
+          const quaternion = new THREE.Quaternion();
+          quaternion.multiply(quaternion_rotation_x_axis);
+          quaternion.multiply(quaternion_rotation_y_axis);
+
+          this.rotation_.copy(quaternion);
+        }
+
+        updateTranslation(timeElapsedS) {
+          // KEYS.w and KEYS.a as is the W and the A key
+          const forwardVelocity = (this.input_.key(KEYS.w) ? 1 : 0) + (this.input_.key(KEYS.s) ? -1 : 0);
+          const leftVelocity = (this.input_.key(KEYS.a) ? 1 : 0) + (this.input_.key(KEYS.d) ? -1 : 0);
+
+
+          const quaternion_rotation_x_axis = new THREE.Quaternion();
+          quaternion_rotation_x_axis.setFromAxisAngle(new THREE.Vector3(0, 1, 0), this.phi_);
+
+          const forward = new THREE.Vector3(0, 0, -1);
+          forward.applyQuaternion(quaternion_rotation_x_axis);
+          forward.multiplyScalar(forwardVelocity * timeElapsedS * 10)
+
+          const left = new THREE.Vector3(-1, 0, 0);
+          left.applyQuaternion(quaternion_rotation_x_axis);
+          left.multiplyScalar(leftVelocity * timeElapsedS * 10)
+
+          this.translation_.add(forward);
+          this.translation_.add(left);
+        }
+
+        updateCamera_(_) {
+          this.camera_.quaternion.copy(this.rotation_);
+          this.camera_.position.copy(this.translation_);
+        }
+      }
+
+      class ThreeJSScene {
+        constructor() {
+          this.initialize_();
+        }
+
+        initialize_() {
+          this.initializeRenderer_();
+          this.importSceneIntoScene_();
+          this.lightConfiguration_();
+          this.controls_();
+          this.player_camera_modification_();
+
+          this.previousRAF_ = null;
+          this.raf_();
+
+          window.addEventListener('resize', () => {
+            this.fpsCamera_.aspect = window.innerWidth / window.innerHeight;
+
+            this.renderer.setSize( window.innerWidth, window.innerHeight );
+          });
+        }
+
+        initializeRenderer_() {
+          this.renderer = new THREE.WebGLRenderer();
+          this.renderer.setPixelRatio( window.devicePixelRatio );
+          this.renderer.setSize( window.innerWidth, window.innerHeight );
+          document.body.appendChild(this.renderer.domElement);
+
+          const fov = 60;
+          const aspect = window.innerWidth / window.innerHeight;
+          const near = 1.0;
+          const far = 1000.0;
+          this.camera_ = new THREE.PerspectiveCamera(fov, aspect, near, far);
+
+          const position = [0, 0, 0]
+          this.camera_.position.set(position[0], position[1], position[2]);
+          this.camera_.lookAt(position[0]+.01, position[1]+.01, position[2]+.01);
+
+          this.scene_ = new THREE.Scene();
+        }
+
+        importSceneIntoScene_() {
+          const gltfLoader = new GLTFLoader();
+          const url = 'maroom.gltf';
+          gltfLoader.load(url, (gltf: GLTF) => { // test if it is a gltf or not later, I don't trust ai bro
+            const root = gltf.scene;
+
+            // to see the mesh while I have no textures...
+            root.traverse((object) => {
+              if (object instanceof THREE.Mesh) {
+                  object.material = new THREE.MeshNormalMaterial();
+              }
+            });
+
+            // add 3d scene to scene
+            this.scene_.add(root);
+          });
+        }
+
+        lightConfiguration_() {
+          const color = 0xFFFFFF;
+          const intensity = 1;
+          const light = new THREE.AmbientLight(color, intensity);
+          this.scene_.add(light);
+        }
+
+        controls_() {
+          //skip
+        }
+
+        player_camera_modification_() {
+          this.fpsCamera_ = new FirstPersonCamera(this.camera_/*, this.objects_ */);
+        }
+
+        raf_() {
+          requestAnimationFrame((t) => {
+            if (this.previousRAF_ === null) {
+              this.previousRAF_ = t;
+            }
+
+            this.step_(t - this.previousRAF_);
+            this.renderer.autoClear = true;
+            this.renderer.render(this.scene_, this.camera_);
+            this.previousRAF_ = t;
+            this.raf_();
+          });
+        }
+
+        step_(timeElapsed) {
+          const timeElapsedS = timeElapsed * 0.001;
+
+          // this.controls_.update(timeElapsedS);
+          this.fpsCamera_.update(timeElapsedS);
+        }
+      }
+      new ThreeJSScene();
+
+      // controls
+
 
       // raycast
       // down the line I will need raycasting for object interactivityl, but not rn:
       // THREE.Raycaster
 
 
-      window.addEventListener('resize', () => {
-        camera.aspect = window.innerWidth / window.innerHeight;
-        camera.updateProjectionMatrix();
-
-        renderer.setSize( window.innerWidth, window.innerHeight );
-      });
-
-      // action
-      function animate(time: number) {
-        console.log(time);
-
-        controls.update();
-        renderer.render( scene, camera );
-      }
-      renderer.setAnimationLoop( animate );
     });
 </script>

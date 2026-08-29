@@ -1,6 +1,5 @@
 <script lang="ts">
     import {GLTFLoader, type GLTF} from 'three/addons/loaders/GLTFLoader.js';
-    //import {FirstPersonControls } from 'three/addons/controls/FirstPersonControls.js';
     import * as THREE from 'three';
     import { onMount } from 'svelte';
 

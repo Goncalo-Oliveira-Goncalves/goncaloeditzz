@@ -3,6 +3,8 @@
     import * as THREE from 'three';
     import { onMount } from 'svelte';
 
+    const SPAWN = [1.5, 1, 2]
+
     onMount(() => {
       const KEYS = {
         a: 'KeyA',
@@ -102,7 +104,7 @@
           this.camera_ = camera;
           this.input_ = new InputRouterAndActionTaker();
           this.rotation_ = new THREE.Quaternion();
-          this.translation_ = new THREE.Vector3(10, 5, 10);
+          this.translation_ = new THREE.Vector3(SPAWN[0], SPAWN[1], SPAWN[2]);
           this.phi_ = 0;
           this.theta_ = 0;
         }
@@ -194,10 +196,6 @@
           const far = 1000.0;
           this.camera_ = new THREE.PerspectiveCamera(fov, aspect, near, far);
 
-          const position = [0, 0, 0]
-          this.camera_.position.set(position[0], position[1], position[2]);
-          this.camera_.lookAt(position[0]+.01, position[1]+.01, position[2]+.01);
-
           this.scene_ = new THREE.Scene();
         }
 
@@ -239,6 +237,8 @@
             if (this.previousRAF_ === null) {
               this.previousRAF_ = t;
             }
+
+            console.log(this.camera_.position);
 
             this.step_(t - this.previousRAF_);
             this.renderer.autoClear = true;

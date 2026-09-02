@@ -5,6 +5,8 @@
 
     const SPAWN = [1.5, 1, 2]
 
+    // TODO: HITBOXES: https://threejs.org/docs/#Box3.setFromObject (you will have to break the scene down into individual objects)
+
     onMount(() => {
       const KEYS = {
         a: 'KeyA',
@@ -205,9 +207,13 @@
           gltfLoader.load(url, (gltf: GLTF) => { // test if it is a gltf or not later, I don't trust ai bro
             const root = gltf.scene;
 
+            this.hitboxes = {};
+
             // to see the mesh while I have no textures...
             root.traverse((object) => {
               if (object instanceof THREE.Mesh) {
+                  this.hitboxes[object.name] = new THREE.Box3().setFromObject(object);
+
                   object.material = new THREE.MeshNormalMaterial();
               }
             });

@@ -170,6 +170,7 @@
         }
 
         initialize_() {
+          this.hitboxes = {};
           this.initializeRenderer_();
           this.importSceneIntoScene_();
           this.lightConfiguration_();
@@ -177,7 +178,7 @@
           this.player_camera_modification_();
 
           this.previousRAF_ = null;
-          this.raf_();
+          this.raf_(); // render animation frame
 
           window.addEventListener('resize', () => {
             this.fpsCamera_.aspect = window.innerWidth / window.innerHeight;
@@ -207,12 +208,12 @@
           gltfLoader.load(url, (gltf: GLTF) => { // test if it is a gltf or not later, I don't trust ai bro
             const root = gltf.scene;
 
-            this.hitboxes = {};
-
             // to see the mesh while I have no textures...
             root.traverse((object) => {
               if (object instanceof THREE.Mesh) {
-                  this.hitboxes[object.name] = new THREE.Box3().setFromObject(object);
+                  const boundingbox = new THREE.Box3(new THREE.Vector3(), new THREE.Vector3());
+                  this.hitboxes[object.name] = boundingbox.setFromObject(object);
+                  console.log(object.name)
 
                   object.material = new THREE.MeshNormalMaterial();
               }
@@ -236,9 +237,22 @@
 
         player_camera_modification_() {
           this.fpsCamera_ = new FirstPersonCamera(this.camera_/*, this.objects_ */);
+
+          this.playerBox = new THREE.Box3(new THREE.Vector3(), new THREE.Vector3()) // TODO: finish to to update and have size
+          // set size
         }
 
         raf_() {
+          function collisionCheck(hitboxes, scene, playerBox) {
+            for (const [objectName, boundingBox] of Object.entries(hitboxes)) {
+              console.log(scene.getObjectByName(objectName))
+              if (playerBox.intersectsBox(boundingBox)) {
+                return false
+              }
+            }
+            return true
+          }
+
           requestAnimationFrame((t) => {
             if (this.previousRAF_ === null) {
               this.previousRAF_ = t;
@@ -246,7 +260,10 @@
 
             console.log(this.camera_.position);
 
-            this.step_(t - this.previousRAF_);
+            if (collisionCheck(this.hitboxes, this.scene_, this.playerBox)) {
+              this.step_(t - this.previousRAF_);
+            }
+            this.playerBox.position =  this.player_camera_modification_
             this.renderer.autoClear = true;
             this.renderer.render(this.scene_, this.camera_);
             this.previousRAF_ = t;

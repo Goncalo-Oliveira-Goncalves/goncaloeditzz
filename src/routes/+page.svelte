@@ -211,11 +211,11 @@
             // to see the mesh while I have no textures...
             root.traverse((object) => {
               if (object instanceof THREE.Mesh) {
-                  const boundingbox = new THREE.Box3(new THREE.Vector3(), new THREE.Vector3());
-                  this.hitboxes[object.name] = boundingbox.setFromObject(object);
-                  console.log(object.name)
+                const boundingbox = new THREE.Box3(new THREE.Vector3(), new THREE.Vector3());
+                this.hitboxes[object.name] = boundingbox.setFromObject(object);
+                console.log(object.name)
 
-                  object.material = new THREE.MeshNormalMaterial();
+                object.material = new THREE.MeshNormalMaterial();
               }
             });
 
@@ -238,19 +238,46 @@
         player_camera_modification_() {
           this.fpsCamera_ = new FirstPersonCamera(this.camera_/*, this.objects_ */);
 
-          this.playerBox = new THREE.Box3(new THREE.Vector3(), new THREE.Vector3()) // TODO: finish to to update and have size
-          // set size
+          this.playerBox = new THREE.Box3(
+            new THREE.Vector3(),
+            new THREE.Vector3()
+          )
         }
 
         raf_() {
-          function collisionCheck(hitboxes, scene, playerBox) {
+          function collisionHandler(
+            hitboxes,
+            scene,
+            playerBox,
+            suggestedTranslation
+          ) {
+            // If the wall normal is:
+            // `normal = (1, 0, 0)`
+            // and you're trying to move:
+            // `velocity = (1, 0, 0)`
+            // then:
+            // Do not allow movement.
+            // And if:
+            // `velocity = (1, 0, 1)`
+            // Allow.
+
+            let intersectedObjects = {};
+
             for (const [objectName, boundingBox] of Object.entries(hitboxes)) {
               console.log(scene.getObjectByName(objectName))
               if (playerBox.intersectsBox(boundingBox)) {
-                return false
+                intersectedObjects[objectName] = boundingBox;
               }
             }
-            return true
+
+            let modified_translation = suggestedTranslation;
+
+            for (const [objectName, boundingBox] of Object.entries(intersectedObjects)) {
+              // TODO: CONTINUE HANDING DOT MULT BASED COLLISSION & TRANSLATION
+              // TODO: ADD UPDATE ON FPSCAMERA IF CERTAIN MOVEMENT IS UNALLOWED.
+            }
+
+            return suggestedTranslation
           }
 
           requestAnimationFrame((t) => {
@@ -260,10 +287,17 @@
 
             console.log(this.camera_.position);
 
-            if (collisionCheck(this.hitboxes, this.scene_, this.playerBox)) {
+            if (collisionHandler(this.hitboxes, this.scene_, this.playerBox)) {
               this.step_(t - this.previousRAF_);
             }
-            this.playerBox.position =  this.player_camera_modification_
+
+            console.log("box:", this.playerBox);
+            console.log("method:", this.playerBox.setFromCenterAndSize);
+
+            this.playerBox.setFromCenterAndSize(
+              this.fpsCamera_.translation_,
+              new THREE.Vector3(0.2, .1, .1)
+            );
             this.renderer.autoClear = true;
             this.renderer.render(this.scene_, this.camera_);
             this.previousRAF_ = t;

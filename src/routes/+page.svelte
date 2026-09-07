@@ -103,6 +103,12 @@
 
       class FirstPersonCamera {
         constructor(camera) {
+          // we cannot define it in other places, because most of this shit is async.
+
+          this.suggestedTranslation = {
+            forward: new THREE.Vector3(),
+            left: new THREE.Vector3()
+          };
           this.camera_ = camera;
           this.input_ = new InputRouterAndActionTaker();
           this.rotation_ = new THREE.Quaternion();
@@ -154,8 +160,11 @@
           left.applyQuaternion(quaternion_rotation_x_axis);
           left.multiplyScalar(leftVelocity * timeElapsedS * 10)
 
-          this.translation_.add(forward);
-          this.translation_.add(left);
+          // add suggested translation here
+          this.suggestedTranslation = {
+            forward: forward,
+            left: left
+          };
         }
 
         updateCamera_(_) {
@@ -198,6 +207,12 @@
           const near = 0.01;
           const far = 100.0;
           this.camera_ = new THREE.PerspectiveCamera(fov, aspect, near, far);
+
+          this.camera_.position.set(
+            SPAWN[0],
+            SPAWN[1],
+            SPAWN[2]
+          );
 
           this.scene_ = new THREE.Scene();
         }
@@ -245,6 +260,61 @@
         }
 
         raf_() {
+          function getCollisionNormal(playerBox, boundingBox) {
+            const boxNormals = [
+              new THREE.Vector3(1, 0, 0),   // +X
+              new THREE.Vector3(-1, 0, 0),  // -X
+              new THREE.Vector3(0, 1, 0),   // +Y
+              new THREE.Vector3(0, -1, 0),  // -Y
+              new THREE.Vector3(0, 0, 1),   // +Z
+              new THREE.Vector3(0, 0, -1),  // -Z
+            ];
+
+            const overlapX = Math.min(
+              playerBox.max.x - boundingBox.min.x,
+              boundingBox.max.x - playerBox.min.x
+            );
+
+            const overlapY = Math.min(
+              playerBox.max.y - boundingBox.min.y,
+              boundingBox.max.y - playerBox.min.y
+            );
+
+            const overlapZ = Math.min(
+              playerBox.max.z - boundingBox.min.z,
+              boundingBox.max.z - playerBox.min.z
+            );
+
+            // Find the axis with the smallest overlap
+            if (overlapX < overlapY && overlapX < overlapZ) {
+              // Collision happened on X axis
+              if (playerBox.getCenter(new THREE.Vector3()).x <
+                  boundingBox.getCenter(new THREE.Vector3()).x) {
+                return boxNormals[0]; // +X
+              } else {
+                return boxNormals[1]; // -X
+              }
+            }
+
+            if (overlapY < overlapZ) {
+              // Collision happened on Y axis
+              if (playerBox.getCenter(new THREE.Vector3()).y <
+                  boundingBox.getCenter(new THREE.Vector3()).y) {
+                return boxNormals[2]; // +Y
+              } else {
+                return boxNormals[3]; // -Y
+              }
+            }
+
+            // Collision happened on Z axis
+            if (playerBox.getCenter(new THREE.Vector3()).z <
+                boundingBox.getCenter(new THREE.Vector3()).z) {
+              return boxNormals[4]; // +Z
+            } else {
+              return boxNormals[5]; // -Z
+            }
+          }
+
           function collisionHandler(
             hitboxes,
             scene,
@@ -261,23 +331,25 @@
             // `velocity = (1, 0, 1)`
             // Allow.
 
-            let intersectedObjects = {};
+            let modified_translation = suggestedTranslation;
+
+            const futurePlayerBox = playerBox.clone();
+            futurePlayerBox.translate(modified_translation);
 
             for (const [objectName, boundingBox] of Object.entries(hitboxes)) {
               console.log(scene.getObjectByName(objectName))
-              if (playerBox.intersectsBox(boundingBox)) {
-                intersectedObjects[objectName] = boundingBox;
+              if (futurePlayerBox.intersectsBox(boundingBox)) {
+                // TODO: CONTINUE HANDING DOT MULT BASED COLLISSION & TRANSLATION
+                // TODO: ADD UPDATE ON FPSCAMERA IF CERTAIN MOVEMENT IS UNALLOWED.
+                const normal = getCollisionNormal(futurePlayerBox, boundingBox);
+
+                const wallForce = modified_translation.dot(normal);
+                const movementToWall = normal.clone().multiplyScalar(wallForce);
+                modified_translation = modified_translation.sub(movementToWall);
               }
             }
 
-            let modified_translation = suggestedTranslation;
-
-            for (const [objectName, boundingBox] of Object.entries(intersectedObjects)) {
-              // TODO: CONTINUE HANDING DOT MULT BASED COLLISSION & TRANSLATION
-              // TODO: ADD UPDATE ON FPSCAMERA IF CERTAIN MOVEMENT IS UNALLOWED.
-            }
-
-            return suggestedTranslation
+            return modified_translation
           }
 
           requestAnimationFrame((t) => {
@@ -285,19 +357,17 @@
               this.previousRAF_ = t;
             }
 
-            console.log(this.camera_.position);
+            this.step_(t - this.previousRAF_);
 
-            if (collisionHandler(this.hitboxes, this.scene_, this.playerBox)) {
-              this.step_(t - this.previousRAF_);
-            }
+            const suggestedTranslation = this.fpsCamera_.suggestedTranslation;
 
-            console.log("box:", this.playerBox);
-            console.log("method:", this.playerBox.setFromCenterAndSize);
+            const forward = collisionHandler(this.hitboxes, this.scene_, this.playerBox, suggestedTranslation.forward);
+            const left = collisionHandler(this.hitboxes, this.scene_, this.playerBox, suggestedTranslation.left);
 
-            this.playerBox.setFromCenterAndSize(
-              this.fpsCamera_.translation_,
-              new THREE.Vector3(0.2, .1, .1)
-            );
+            // inside a statement on "if collision true" this.step_(t - this.previousRAF_);
+
+            this.fpsCamera_.translation_.add(forward);
+            this.fpsCamera_.translation_.add(left);
             this.renderer.autoClear = true;
             this.renderer.render(this.scene_, this.camera_);
             this.previousRAF_ = t;
@@ -310,6 +380,10 @@
 
           // this.controls_.update(timeElapsedS);
           this.fpsCamera_.update(timeElapsedS);
+          this.playerBox.setFromCenterAndSize(
+            this.fpsCamera_.translation_,
+            new THREE.Vector3(0.2, .1, .1)
+          );
         }
       }
       new ThreeJSScene();

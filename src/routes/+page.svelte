@@ -317,7 +317,7 @@
 
           this.playerBox.setFromCenterAndSize(
             this.fpsCamera_.translation_,
-            new THREE.Vector3(0.2, .1, .1)
+            new THREE.Vector3(.5, 2, .5)
           );
         }
       }

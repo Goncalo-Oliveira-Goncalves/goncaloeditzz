@@ -2,6 +2,7 @@
     import {GLTFLoader, type GLTF} from 'three/addons/loaders/GLTFLoader.js';
     import * as THREE from 'three';
     import { onMount } from 'svelte';
+    import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
 
     const SPAWN = [1.5, 1, 2]
 
@@ -110,6 +111,7 @@
             left: new THREE.Vector3()
           };
           this.camera_ = camera;
+          this.controls_ = new PointerLockControls(camera, document.body)
           this.input_ = new InputRouterAndActionTaker();
           this.rotation_ = new THREE.Quaternion();
           this.translation_ = new THREE.Vector3(SPAWN[0], SPAWN[1], SPAWN[2]);
